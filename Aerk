@@ -1,0 +1,131 @@
+-- โหลด Rayfield UI Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- สร้าง หน้าต่าง GUI
+local Window = Rayfield:CreateWindow({
+   Name = "Steal an Egg Script",
+   LoadingTitle = "กำลังโหลดระบบ...",
+   LoadingSubtitle = "by AI GIMINI",
+   ConfigurationSaving = {
+      Enabled = false
+   },
+   KeySystem = false
+})
+
+-- สร้าง Tab หลัก
+local MainTab = Window:CreateTab("ฟังก์ชันหลัก", 4483362458)
+
+-- ตัวแปรควบคุมการทำงานของ Toggle
+local LazyAnimalsEnabled = false
+local FlyModeEnabled = false
+
+------------------------------------------------------------------
+-- ฟังก์ชันที่ 1: ขโมยไข่แล้วสัตว์ไม่วิ่งไล่ (สัตว์ขี้เกียจวิ่งไล่)
+------------------------------------------------------------------
+local LazyAnimalsToggle = MainTab:CreateToggle({
+   Name = "สัตว์ขี้เกียจวิ่งไล่",
+   CurrentValue = false,
+   Flag = "LazyAnimalsFlag",
+   Callback = function(Value)
+      LazyAnimalsEnabled = Value
+      
+      if LazyAnimalsEnabled then
+         task.spawn(function()
+            while LazyAnimalsEnabled do
+               -- ปิดการทำงานของ Humanoid / WalkSpeed หรือการชนของสัตว์ในพื้นที่
+               for _, v in pairs(workspace:GetChildren()) do
+                  -- ตรวจสอบ Object ที่เป็นสัตว์หรือศัตรูในเกม
+                  if v:FindFirstChild("Humanoid") and v.Name ~= game.Players.LocalPlayer.Name then
+                     v.Humanoid.WalkSpeed = 0
+                     -- ตัดความสัมพันธ์การตรวจจับของ AI
+                     if v:FindFirstChild("Target") then
+                        v.Target.Value = nil
+                     end
+                  end
+               end
+               task.wait(0.5)
+            end
+         end)
+      else
+         -- คืนค่าความเร็วปกติให้สัตว์เมื่อปิดใช้งาน
+         for _, v in pairs(workspace:GetChildren()) do
+            if v:FindFirstChild("Humanoid") and v.Name ~= game.Players.LocalPlayer.Name then
+               v.Humanoid.WalkSpeed = 16
+            end
+         end
+      end
+   end,
+})
+
+------------------------------------------------------------------
+-- ฟังก์ชันที่ 2: บินออกมาเรื้อนสัตว์ (บินขโมยไข่และกลับฐานโดยไม่ติดบั๊ก)
+------------------------------------------------------------------
+local LocalPlayer = game.Players.LocalPlayer
+local BodyVelocity = nil
+
+local FlyToggle = MainTab:CreateToggle({
+   Name = "บินออกมาเรื้อนสัตว์",
+   CurrentValue = false,
+   Flag = "FlyModeFlag",
+   Callback = function(Value)
+      FlyModeEnabled = Value
+      local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+      local HRP = Character:FindFirstChild("HumanoidRootPart")
+      
+      if FlyModeEnabled and HRP then
+         -- สร้างแรงยกเพื่อเปิดโหมดบินโดยไม่ปลุกระบบAnti-Cheatความเร็ว
+         BodyVelocity = Instance.new("BodyVelocity")
+         BodyVelocity.Name = "SafeFlyVelocity"
+         BodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+         BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+         BodyVelocity.Parent = HRP
+
+         -- ลูปควบคุมการลอยตัวและการเคลื่อนที่
+         task.spawn(function()
+            while FlyModeEnabled and Character:FindFirstChild("HumanoidRootPart") do
+               local Camera = workspace.CurrentCamera
+               local MoveDir = Vector3.new(0, 0, 0)
+               
+               -- คำนวณทิศทางการเดินเพื่อการบินที่สมบูรณ์แบบ
+               if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+                  MoveDir = MoveDir + Camera.CFrame.LookVector
+               end
+               if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+                  MoveDir = MoveDir - Camera.CFrame.LookVector
+               end
+               if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+                  MoveDir = MoveDir - Camera.CFrame.RightVector
+               end
+               if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+                  MoveDir = MoveDir + Camera.CFrame.RightVector
+               end
+               if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+                  MoveDir = MoveDir + Vector3.new(0, 1, 0)
+               end
+               if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
+                  MoveDir = MoveDir - Vector3.new(0, 1, 0)
+               end
+
+               BodyVelocity.Velocity = MoveDir * 50 -- กำหนดความเร็วบินให้เสถียร ไม่หลุดแจ้งเตือน
+               task.wait()
+            end
+         end)
+      else
+         -- ลบแรงยกเพื่อลงสู่พื้นปกติ
+         if HRP and HRP:FindFirstChild("SafeFlyVelocity") then
+            HRP.SafeFlyVelocity:Destroy()
+         end
+         if BodyVelocity then
+            BodyVelocity:Destroy()
+         end
+      end
+   end,
+})
+
+-- แจ้งเตือนเมื่อโหลดสคริปต์สำเร็จ
+Rayfield:Notify({
+   Title = "สถานะสคริปต์",
+   Content = "โหลดระบบเรียบร้อยพร้อมใช้งาน",
+   Duration = 3,
+   Image = 4483362458,
+})
